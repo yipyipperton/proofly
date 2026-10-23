@@ -5,7 +5,6 @@ export function formatFindings(r: AnalysisResult): string {
   lines.push("Proofly scam check (advisory only, not a guarantee)");
   lines.push(`Category: ${CATEGORY_LABELS[r.category]}`);
   lines.push(`Risk: ${r.riskLevel.toUpperCase()} (${r.score}/100)`);
-  lines.push(`Mode: ${r.mode === "ai" ? "AI + rules" : r.mode === "demo" ? "Demo mode (rules + templated explanation)" : "Rules only (AI unavailable)"}`);
   lines.push("", "Summary:", r.summary);
   if (r.concerns.length) {
     lines.push("", "Key concerns:");

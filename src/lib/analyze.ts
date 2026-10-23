@@ -1,9 +1,9 @@
-import type { AiResponse, AnalysisMode, AnalysisResult, Category, Concern, RiskLevel, RuleFinding } from "./schema";
+import type { AnalysisResult, Category, Concern, RiskLevel, RuleFinding } from "./schema";
 import { analyzeWithRules } from "./rules";
 
 export const BASE_LIMITATIONS = [
   "Proofly does not visit links, and makes no domain reputation, blocklist, or threat-intelligence lookups.",
-  "Analysis is based only on the text you pasted. Sender details, headers, and attachments are not verified.",
+  "Analysis uses fixed, transparent pattern rules on only on the text you pasted. Sender details, headers, and attachments are not verified.",
   "Results are advisory and not a guarantee. A low score does not mean a message is safe.",
 ];
 
@@ -35,79 +35,48 @@ export function defaultSteps(category: Category, findings: RuleFinding[]): strin
   return steps;
 }
 
-export function templatedSummary(level: RiskLevel, findings: RuleFinding[]): string {
+const CATEGORY_CONTEXT: Record<Category, string> = {
+  sms: "Scam texts often pretend to be a delivery company, bank or toll agency and push you to tap a link fast.",
+  email: "Phishing emails copy the look of real companies. The sender name and logo can be faked easily.",
+  job: "Fake job offers usually end with you paying for something or passing money along for the 'employer'.",
+  marketplace: "Marketplace scammers try to get you off the platform, or to send money or codes before a real sale happens.",
+};
+
+export function templatedSummary(level: RiskLevel, findings: RuleFinding[], category: Category = "sms"): string {
   if (!findings.length) {
-    return "Our rules didn't find common scam patterns in this message. That's a good sign, but it isn't proof that the message is safe. Scams change constantly, so still check the sender through an official channel before you act.";
+    return "We didn't find the common scam patterns we check for. That's a good sign, but it isn't proof the message is safe. Scams change all the time, so if it asks you to pay, sign in or share anything personal, check with the sender through a channel you already trust.";
   }
   const top = findings.slice(0, 3).map((f) => f.title.toLowerCase());
   const list = top.length > 1 ? `${top.slice(0, -1).join(", ")} and ${top[top.length - 1]}` : top[0];
   const lead =
     level === "high"
-      ? "This message has several strong warning signs that often show up in scams."
+      ? "This message shows several strong warning signs that are very common in scams."
       : level === "medium"
         ? "This message has some warning signs worth taking seriously."
-        : "This message has a few minor signals, though nothing strongly suspicious.";
-  return `${lead} We noticed: ${list}. Don't act on it until you've verified it independently.`;
+        : "This message has a few minor signals, though nothing strongly suspicious on its own.";
+  const close =
+    level === "high"
+      ? "We'd strongly suggest not replying, paying or tapping any links until you've confirmed it independently."
+      : "Before you act on it, verify it independently.";
+  return `${lead} We noticed: ${list}. ${CATEGORY_CONTEXT[category]} ${close}`;
 }
 
 function ruleConcerns(findings: RuleFinding[]): Concern[] {
-  return findings.map((f) => ({ title: f.title, explanation: f.explanation, evidence: f.evidence, source: "rule", severity: f.severity }));
+  return findings.map((f) => ({ title: f.title, explanation: f.explanation, evidence: f.evidence, severity: f.severity }));
 }
 
-const ORDER: Record<RiskLevel, number> = { low: 0, medium: 1, high: 2 };
-
-/** Keep only evidence quotes that actually appear in the text (guards against AI hallucinated quotes). */
-export function groundEvidence(text: string, evidence: string[]): string[] {
-  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").replace(/^[…."'\s]+|[…."'\s]+$/g, "");
-  const hay = norm(text);
-  return evidence.filter((e) => {
-    const n = norm(e);
-    return n.length > 0 && hay.includes(n);
-  });
-}
-
-export function buildResult(params: {
-  text: string;
-  category: Category;
-  mode: AnalysisMode;
-  ai?: AiResponse;
-  notice?: string;
-}): AnalysisResult {
-  const { text, category, mode, ai, notice } = params;
+export function buildResult(params: { text: string; category: Category }): AnalysisResult {
+  const { text, category } = params;
   const rules = analyzeWithRules(text, category);
-  let riskLevel = rules.riskLevel;
-  let score = rules.score;
-  let summary = templatedSummary(riskLevel, rules.ruleFindings);
-  let concerns = ruleConcerns(rules.ruleFindings);
-  let limitations = [...BASE_LIMITATIONS];
-  let verificationSteps = defaultSteps(category, rules.ruleFindings);
-
-  if (ai) {
-    // AI may raise but never lower the rule-based risk below what rules detected.
-    if (ORDER[ai.riskLevel] > ORDER[riskLevel]) {
-      riskLevel = ai.riskLevel;
-      score = Math.max(score, ai.riskLevel === "high" ? 60 : 30);
-    }
-    summary = ai.summary;
-    const aiConcerns: Concern[] = ai.concerns
-      .map((c) => ({ title: c.title, explanation: c.explanation, evidence: groundEvidence(text, c.evidence), source: "ai" as const }))
-      .filter((c) => c.evidence.length > 0);
-    concerns = [...aiConcerns, ...concerns];
-    limitations = [...BASE_LIMITATIONS, ...ai.limitations.filter((l) => !/reputation|blocklist|virustotal|whois/i.test(l))].slice(0, 7);
-    verificationSteps = ai.verificationSteps.length ? ai.verificationSteps : verificationSteps;
-  }
-
   return {
-    mode,
-    notice,
-    riskLevel,
-    score,
-    summary,
-    concerns,
+    riskLevel: rules.riskLevel,
+    score: rules.score,
+    summary: templatedSummary(rules.riskLevel, rules.ruleFindings, category),
+    concerns: ruleConcerns(rules.ruleFindings),
     ruleFindings: rules.ruleFindings,
     urls: rules.urls,
-    limitations,
-    verificationSteps,
+    limitations: [...BASE_LIMITATIONS],
+    verificationSteps: defaultSteps(category, rules.ruleFindings),
     category,
     analyzedAt: new Date().toISOString(),
   };

@@ -3,7 +3,7 @@
 import * as React from "react";
 import {
   AlertTriangle, Check, ClipboardCopy, Info, Link2Off, Loader2, MessageSquare, Mail,
-  Briefcase, ShoppingBag, ShieldCheck, ShieldAlert, Shield, Sparkles, RotateCcw, ListChecks, Quote,
+  Briefcase, ShoppingBag, ShieldCheck, ShieldAlert, Shield, RotateCcw, ListChecks, Quote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -237,17 +237,8 @@ function Results({ result }: { result: AnalysisResult }) {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const modeLabel =
-    result.mode === "ai" ? "AI + rules" : result.mode === "demo" ? "Demo mode · rules only" : "Rules only";
-
   return (
     <section aria-live="polite" className="mt-6 space-y-4">
-      {result.notice && (
-        <div className="animate-rise flex items-start gap-2 rounded-xl bg-secondary p-3 text-sm text-secondary-foreground ring-1 ring-primary/10">
-          <Info className="mt-0.5 size-4 shrink-0" /> <span>{result.notice}</span>
-        </div>
-      )}
-
       <Card className={cn("animate-rise overflow-hidden bg-gradient-to-b to-card to-60%", meta.bg)}>
         <CardContent className="p-5">
           <div className="flex items-center gap-4">
@@ -258,10 +249,7 @@ function Results({ result }: { result: AnalysisResult }) {
               </div>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 <Badge variant="outline">{CATEGORY_LABELS[result.category]}</Badge>
-                <Badge variant="outline">
-                  {result.mode === "ai" ? <Sparkles className="size-3" /> : null}
-                  {modeLabel}
-                </Badge>
+                <Badge variant="outline">Rule-based check</Badge>
               </div>
             </div>
           </div>
@@ -288,8 +276,7 @@ function Results({ result }: { result: AnalysisResult }) {
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-medium leading-snug">{c.title}</p>
                     <div className="flex shrink-0 gap-1">
-                      {c.severity && <Badge variant={c.severity}>{c.severity}</Badge>}
-                      <Badge variant="outline">{c.source === "ai" ? "AI" : "Rule"}</Badge>
+                      <Badge variant={c.severity}>{c.severity}</Badge>
                     </div>
                   </div>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{c.explanation}</p>

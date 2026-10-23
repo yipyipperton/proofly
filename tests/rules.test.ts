@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { analyzeWithRules, runRules } from "@/lib/rules";
 import { DEMOS } from "@/lib/demos";
-import { buildResult, groundEvidence } from "@/lib/analyze";
+import { buildResult, templatedSummary, defaultSteps } from "@/lib/analyze";
 import { formatFindings } from "@/lib/format";
 
 const ids = (t: string, c: Parameters<typeof runRules>[1] = "sms") => runRules(t, c).map((f) => f.id);
@@ -45,21 +45,39 @@ describe("rule detections", () => {
   });
 });
 
-describe("buildResult", () => {
-  it("demo mode produces templated explanation and limitations", () => {
-    const r = buildResult({ text: DEMOS[0].text, category: "sms", mode: "demo" });
-    expect(r.summary.length).toBeGreaterThan(20);
-    expect(r.limitations.join(" ")).toMatch(/no domain reputation/i);
-    expect(formatFindings(r)).toMatch(/Risk: HIGH/);
-  });
-  it("drops AI evidence not found in the text", () => {
-    expect(groundEvidence("Pay with gift cards now", ["gift cards", "invented quote"])).toEqual(["gift cards"]);
-  });
-  it("AI cannot lower rule-based risk", () => {
-    const r = buildResult({
-      text: DEMOS[1].text, category: "job", mode: "ai",
-      ai: { summary: "Looks fine", riskLevel: "low", concerns: [], limitations: [], verificationSteps: ["Check"] },
-    });
+describe("buildResult and explanations", () => {
+  it("produces a full result with explanations and disclaimers", () => {
+    const r = buildResult({ text: DEMOS[0].text, category: "sms" });
     expect(r.riskLevel).toBe("high");
+    expect(r.summary).toMatch(/strong warning signs/);
+    expect(r.concerns.length).toBeGreaterThan(0);
+    for (const c of r.concerns) {
+      expect(c.explanation.length).toBeGreaterThan(30);
+      expect(c.evidence.length).toBeGreaterThan(0);
+    }
+    expect(r.limitations.join(" ")).toMatch(/no domain reputation/i);
+    expect(r.limitations.join(" ")).toMatch(/not a guarantee/i);
+    expect(r).not.toHaveProperty("mode");
+  });
+  it("benign summary is reassuring but cautious", () => {
+    const s = templatedSummary("low", [], "email");
+    expect(s).toMatch(/isn't proof/);
+  });
+  it("summary includes category context and top findings", () => {
+    const r = buildResult({ text: DEMOS[2].text, category: "marketplace" });
+    expect(r.summary).toMatch(/Marketplace scammers/);
+    expect(r.summary.toLowerCase()).toContain(r.concerns[0].title.toLowerCase());
+  });
+  it("verification steps adapt to findings", () => {
+    const steps = defaultSteps("job", runRules("Please provide your SSN and pay with gift cards", "job"));
+    expect(steps.join(" ")).toMatch(/one-time codes/);
+    expect(steps.join(" ")).toMatch(/gift cards/);
+  });
+  it("formatted findings are plain text with defanged links", () => {
+    const out = formatFindings(buildResult({ text: DEMOS[0].text, category: "sms" }));
+    expect(out).toMatch(/Risk: HIGH/);
+    expect(out).toMatch(/advisory only/);
+    expect(out).toContain("[.]");
+    expect(out).not.toMatch(/<[a-z]/i);
   });
 });
