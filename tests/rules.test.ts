@@ -81,3 +81,46 @@ describe("buildResult and explanations", () => {
     expect(out).not.toMatch(/<[a-z]/i);
   });
 });
+
+describe("brand impersonation + billing lures", () => {
+  const freedom = "Freedom Mobile Notification:\nWe were unable to process your latest monthly bill. Please update your billing details at: https://myfreedom-bill.com";
+
+  it("flags the Freedom Mobile billing phish as HIGH", () => {
+    const r = analyzeWithRules(freedom, "sms");
+    expect(r.riskLevel).toBe("high");
+    expect(r.score).toBeGreaterThanOrEqual(55);
+    const ids = r.ruleFindings.map((f) => f.id);
+    expect(ids).toEqual(expect.arrayContaining(["billing-lure", "brand-offsite-link", "url-structure", "impersonation"]));
+    expect(r.urls[0].issues.join(" ")).toMatch(/Look-alike domain.*Freedom Mobile/);
+    expect(r.urls[0].issues.join(" ")).toMatch(/bait word "bill"/);
+  });
+  it("same message is HIGH in email category too", () => {
+    expect(analyzeWithRules(freedom, "email").riskLevel).toBe("high");
+  });
+  it.each([
+    ["Rogers: your payment was declined. Verify your card at rogers-secure-pay.com", "high"],
+    ["TD: Your account has been locked. Sign in at td-verify.net to restore access", "high"],
+    ["Hydro One final notice: service will be interrupted. Pay now at hydroone-billing.top", "high"],
+    ["Netflix: payment failed. Update your payment method at netfIix-account.com/update", "high"],
+  ])("detects %s", (msg, level) => {
+    expect(analyzeWithRules(msg, "sms").riskLevel).toBe(level);
+  });
+  it("official brand links are not flagged as lookalikes", () => {
+    const r = analyzeWithRules("Freedom Mobile: your bill is ready. View it in the app or at https://www.freedommobile.ca/en-CA/account", "sms");
+    expect(r.ruleFindings.map((f) => f.id)).not.toContain("brand-offsite-link");
+    expect(r.urls[0].issues).toEqual([]);
+  });
+  it("benign: friend sharing a YouTube link stays low", () => {
+    const r = analyzeWithRules("lol you have to watch this https://www.youtube.com/watch?v=dQw4w9WgXcQ", "sms");
+    expect(r.riskLevel).toBe("low");
+    expect(r.ruleFindings).toEqual([]);
+  });
+  it("benign: real-looking note without a link stays low", () => {
+    const r = analyzeWithRules("Hi, it's Sam. Your Rogers bill came to my place by mistake, I'll drop it off tomorrow.", "sms");
+    expect(r.riskLevel).toBe("low");
+  });
+  it("benign: short words like 'td' or 'ups' inside normal words don't trigger brands", () => {
+    const r = analyzeWithRules("Thanks for the update, see you at the studio. Cheers!", "sms");
+    expect(r.ruleFindings).toEqual([]);
+  });
+});

@@ -1,5 +1,6 @@
 import type { Category, ExtractedUrl, RiskLevel, RuleFinding, Severity } from "./schema";
-import { extractAndAnalyzeUrls } from "./urls";
+import { extractAndAnalyzeUrls, registrableDomain } from "./urls";
+import { ALL_OFFICIAL, BRANDS, brandsMentioned } from "./brands";
 
 interface Rule {
   id: string;
@@ -47,7 +48,14 @@ export const RULES: Rule[] = [
     title: "Claims to be from a well-known organization",
     explanation: "The message names a bank, government agency, delivery company or major brand. Scammers often impersonate trusted names — contact the organization through its official app or a website you type in yourself.",
     severity: "low", weight: W.low,
-    patterns: [/\b(usps|fedex|ups|dhl|canada post|royal mail)\b/i, /\b(irs|cra|revenue agency|social security administration|hmrc)\b/i, /\b(amazon|paypal|apple|microsoft|netflix|chase|wells fargo|bank of america|coinbase|geek squad|norton|mcafee)\b/i, /\byour bank\b/i],
+    patterns: [new RegExp(`\\b(${BRANDS.flatMap((b) => b.names).filter((n) => n.length > 4).map((n) => n.replace(/[.*+?^${}()|[\]\\&-]/g, "\\$&")).join("|")})(?![A-Za-z0-9])`, "i"), /\b(usps|fedex|ups|dhl|canada post|royal mail|rbc|cibc|bmo|td bank)\b/i, /\b(irs|cra|revenue agency|social security administration|hmrc)\b/i, /\b(amazon|paypal|apple|microsoft|netflix|chase|wells fargo|bank of america|coinbase|geek squad|norton|mcafee)\b/i, /\byour bank\b/i],
+  },
+  {
+    id: "billing-lure",
+    title: "Claims a billing or payment problem",
+    explanation: "Fake 'your payment failed' or 'update your billing details' messages are one of the most common phishing lures. They copy telecom, utility, streaming and bank notices to get your card or login details.",
+    severity: "medium", weight: W.medium + 5,
+    patterns: [/\b(unable|could ?n[o']t|failed) to (process|complete|charge|verify)\b/i, /\bpayment (has )?(failed|was declined|declined|unsuccessful|did not go through|could not be processed)\b/i, /\b(update|verify|confirm|re-?enter)\b[^.]{0,25}\b(billing|payment|card|bank(ing)?) (details|info(rmation)?|method)\b/i, /\b(account|service|line)\b[^.]{0,30}\b(suspended|locked|on hold|restricted|disabled|interrupted|disconnected|cancell?ed)\b/i, /\bservice (will|may) be (interrupted|suspended|disconnected|terminated)\b/i, /\b(final|last) (notice|reminder|warning)\b/i, /\b(overdue|outstanding|unpaid) (bill|balance|invoice|payment)\b/i],
   },
   {
     id: "delivery-fee",
@@ -159,7 +167,7 @@ export function runRules(text: string, category: Category): RuleFinding[] {
   return findings;
 }
 
-const SEVERE_URL = /IP address|Punycode|'@'|Brand name|resembles/;
+const SEVERE_URL = /IP address|Punycode|'@'|Look-alike/;
 
 export function urlFindings(urls: ExtractedUrl[]): RuleFinding[] {
   const flagged = urls.filter((u) => u.issues.length > 0);
@@ -178,6 +186,39 @@ export function urlFindings(urls: ExtractedUrl[]): RuleFinding[] {
   ];
 }
 
+function brandLine(text: string, brand: { names: string[] }): string {
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const hit = lines.find((l) => brand.names.some((n) => l.toLowerCase().includes(n.toLowerCase()))) ?? lines[0] ?? "";
+  return hit.length > 140 ? hit.slice(0, 137) + "…" : hit;
+}
+
+const ACTION_RE = /\b(update|verify|confirm|log ?in|sign ?in|pay|click|tap|visit|re-?activate|unlock|restore|validate)\b/i;
+
+/**
+ * Combination signal: the message names a well-known brand, contains a link that is NOT one of
+ * that brand's official domains, and asks you to act (update/verify/pay/log in).
+ */
+export function brandLinkFinding(text: string, urls: ExtractedUrl[]): RuleFinding | null {
+  const brands = brandsMentioned(text);
+  if (!brands.length || !ACTION_RE.test(text)) return null;
+  const foreign = urls.filter((u) => {
+    if (!u.host) return true;
+    const reg = registrableDomain(u.host);
+    return !brands.some((b) => b.official.includes(reg)) && !ALL_OFFICIAL.has(reg);
+  });
+  if (!foreign.length) return null;
+  const b = brands[0].names[0];
+  const action = text.match(ACTION_RE)?.[0] ?? "act";
+  return {
+    id: "brand-offsite-link",
+    title: `Says it's from ${b}, but links to a non-${b} website`,
+    explanation: `The message uses ${b}'s name and asks you to ${action.toLowerCase()}, but the link doesn't go to an official ${b} domain (${brands[0].official.join(", ")}). Real companies send you to their own website. Open the official app or type the address yourself instead.`,
+    severity: "high",
+    weight: W.high + 10,
+    evidence: [brandLine(text, brands[0]), ...foreign.slice(0, 2).map((u) => u.raw)].filter(Boolean),
+  };
+}
+
 export function scoreFindings(findings: RuleFinding[]): { score: number; riskLevel: RiskLevel } {
   const raw = findings.reduce((s, f) => s + f.weight, 0);
   const highs = findings.filter((f) => f.severity === "high").length;
@@ -189,6 +230,7 @@ export function scoreFindings(findings: RuleFinding[]): { score: number; riskLev
 
 export function analyzeWithRules(text: string, category: Category) {
   const urls = extractAndAnalyzeUrls(text);
-  const ruleFindings = [...runRules(text, category), ...urlFindings(urls)].sort((a, b) => b.weight - a.weight);
+  const combo = brandLinkFinding(text, urls);
+  const ruleFindings = [...runRules(text, category), ...urlFindings(urls), ...(combo ? [combo] : [])].sort((a, b) => b.weight - a.weight);
   return { urls, ruleFindings, ...scoreFindings(ruleFindings) };
 }

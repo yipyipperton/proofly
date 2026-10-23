@@ -33,8 +33,8 @@ describe("analyzeUrl", () => {
   it("flags @ in URL", () => expect(issues("https://paypal.com@evil.example/x")).toMatch(/'@'/));
   it("flags many subdomains", () => expect(issues("https://a.b.c.d.example.com")).toMatch(/many subdomains/));
   it("flags unusual TLDs", () => expect(issues("https://deals.xyz")).toMatch(/\.xyz/));
-  it("flags brand in subdomain", () => expect(issues("https://paypal.account-verify.com/")).toMatch(/Brand name "paypal"/));
-  it("flags lookalike domain", () => expect(issues("https://paypa1.com")).toMatch(/resembles "paypal"/));
+  it("flags brand in subdomain", () => expect(issues("https://paypal.account-verify.com/")).toMatch(/Look-alike domain.*PayPal/));
+  it("flags lookalike domain", () => expect(issues("https://paypa1.com")).toMatch(/Look-alike domain.*PayPal/));
   it("flags brand embedded in unrelated domain", () => expect(issues("http://usps.com-track.xyz/u")).toMatch(/usps/));
   it("does not flag official domains", () => {
     expect(analyzeUrl("https://www.paypal.com/signin").issues).toEqual([]);

@@ -18,27 +18,7 @@ export const UNUSUAL_TLDS = new Set([
   "monster", "cyou", "sbs", "lol", "quest", "shop",
 ]);
 
-/** Official registrable domains for brands commonly impersonated. */
-const OFFICIAL: Record<string, string[]> = {
-  paypal: ["paypal.com"], amazon: ["amazon.com", "amazon.ca", "amazon.co.uk"], apple: ["apple.com"],
-  icloud: ["icloud.com"], microsoft: ["microsoft.com", "live.com"], netflix: ["netflix.com"],
-  usps: ["usps.com"], fedex: ["fedex.com"], dhl: ["dhl.com"], chase: ["chase.com"],
-  wellsfargo: ["wellsfargo.com"], bankofamerica: ["bankofamerica.com"], coinbase: ["coinbase.com"],
-  binance: ["binance.com"], google: ["google.com"], facebook: ["facebook.com"],
-  instagram: ["instagram.com"], whatsapp: ["whatsapp.com"], venmo: ["venmo.com"],
-  zelle: ["zellepay.com"], ebay: ["ebay.com"], walmart: ["walmart.com"], costco: ["costco.com"],
-  canadapost: ["canadapost-postescanada.ca", "canadapost.ca"], interac: ["interac.ca"],
-  scotiabank: ["scotiabank.com"], irs: ["irs.gov"],
-};
-export const BRANDS = Object.keys(OFFICIAL);
-
-const LOOKALIKE_SUBS: Array<[RegExp, string]> = [
-  [/0/g, "o"], [/1/g, "l"], [/3/g, "e"], [/5/g, "s"], [/rn/g, "m"], [/vv/g, "w"],
-];
-
-function normalizeLookalike(s: string): string {
-  return LOOKALIKE_SUBS.reduce((acc, [re, rep]) => acc.replace(re, rep), s);
-}
+import { ALL_OFFICIAL, brandInDomain, hasBaitHyphen } from "./brands";
 
 export function extractUrls(text: string): string[] {
   const out: string[] = [];
@@ -118,19 +98,14 @@ export function analyzeUrl(raw: string): ExtractedUrl {
   const tld = labels[labels.length - 1];
   if (UNUSUAL_TLDS.has(tld)) issues.push(`Uncommon top-level domain ".${tld}" often used for throwaway sites`);
 
-  const regName = reg.split(".")[0];
-  const sub = host.slice(0, Math.max(0, host.length - reg.length));
-  for (const brand of BRANDS) {
-    if (OFFICIAL[brand].includes(reg)) continue;
-    const token = new RegExp(`(^|[.-])${brand}([.-]|$)`);
-    if (brand.length >= 3 && token.test(sub)) {
-      issues.push(`Brand name "${brand}" appears in a subdomain of an unrelated domain (${reg})`);
-      break;
+  const sub = host.slice(0, Math.max(0, host.length - reg.length)).replace(/\.$/, "");
+  if (!ALL_OFFICIAL.has(reg)) {
+    const brand = brandInDomain(reg, sub.replace(/^www\.?/, ""));
+    if (brand) {
+      issues.push(`Look-alike domain: "${reg}" uses the name "${brand.names[0]}" but is not an official ${brand.names[0]} domain (${brand.official[0]})`);
     }
-    if (brand.length >= 4 && (regName.includes(brand) || normalizeLookalike(regName).includes(brand))) {
-      issues.push(`Domain "${reg}" resembles "${brand}" but is not its official domain`);
-      break;
-    }
+    const bait = hasBaitHyphen(reg);
+    if (bait) issues.push(`Hyphenated domain with the bait word "${bait}", a pattern common in phishing sites`);
   }
   return { raw, host, issues };
 }
