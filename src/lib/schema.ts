@@ -48,7 +48,21 @@ export interface Concern {
   severity: Severity;
 }
 
+export interface IntelMatchView {
+  lure: string;
+  label: string;
+  alerts: Array<{ source: string; title: string; url: string; date: string | null; brandMatch: boolean }>;
+}
+
+export interface IntelInfo {
+  updatedAt: string | null;
+  alertCount: number;
+  sources: Array<{ name: string; ok: boolean }>;
+}
+
 export interface AnalysisResult {
+  intelMatches: IntelMatchView[];
+  intel: IntelInfo | null;
   riskLevel: RiskLevel;
   score: number;
   summary: string;

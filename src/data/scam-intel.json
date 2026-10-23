@@ -1,0 +1,112 @@
+{
+  "updatedAt": "2026-10-23T02:48:56.699Z",
+  "sources": [
+    {
+      "id": "ftc",
+      "name": "FTC Consumer Alerts (US)",
+      "ok": false,
+      "items": 0,
+      "alerts": 0,
+      "error": "HTTP 403"
+    },
+    {
+      "id": "ic3",
+      "name": "FBI IC3 Public Service Announcements (US)",
+      "ok": true,
+      "items": 5,
+      "alerts": 1
+    },
+    {
+      "id": "competition-bureau",
+      "name": "Competition Bureau Canada",
+      "ok": true,
+      "items": 100,
+      "alerts": 5
+    },
+    {
+      "id": "rcmp",
+      "name": "RCMP (Canada)",
+      "ok": false,
+      "items": 0,
+      "alerts": 0,
+      "error": "No feed items found"
+    },
+    {
+      "id": "cafc",
+      "name": "Canadian Anti-Fraud Centre",
+      "ok": false,
+      "items": 0,
+      "alerts": 0,
+      "error": "No feed items found"
+    }
+  ],
+  "alerts": [
+    {
+      "sourceId": "ic3",
+      "source": "FBI IC3 Public Service Announcements (US)",
+      "title": "Scammers Exploit 2026 U.S. Midterm Election to Perpetrate Multiple Fraud Schemes",
+      "url": "https://www.ic3.gov/PSA/2026/PSA261015-3",
+      "date": "2026-10-15T13:00:00.000Z",
+      "lures": [
+        "election"
+      ],
+      "brands": []
+    },
+    {
+      "sourceId": "competition-bureau",
+      "source": "Competition Bureau Canada",
+      "title": "Multiple charges laid in deceptive online passport service scam",
+      "url": "https://www.canada.ca/en/competition-bureau/news/2026/07/multiple-charges-laid-in-deceptive-online-passport-service-scam.html",
+      "date": "2026-07-28T11:58:09.000Z",
+      "lures": [
+        "government",
+        "passport"
+      ],
+      "brands": []
+    },
+    {
+      "sourceId": "competition-bureau",
+      "source": "Competition Bureau Canada",
+      "title": "Ticket buyers: Beware of deceptive marketing tactics",
+      "url": "https://www.canada.ca/en/competition-bureau/news/2026/05/ticket-buyers-beware-of-deceptive-marketing-tactics.html",
+      "date": "2026-05-20T12:30:28.000Z",
+      "lures": [
+        "tickets"
+      ],
+      "brands": []
+    },
+    {
+      "sourceId": "competition-bureau",
+      "source": "Competition Bureau Canada",
+      "title": "Competition Bureau’s experts available to discuss AI-generated government impersonation scams with media",
+      "url": "https://www.canada.ca/en/competition-bureau/news/2026/03/competition-bureaus-experts-available-to-discuss-ai-generated-government-impersonation-scams-with-media.html",
+      "date": "2026-03-24T13:49:11.000Z",
+      "lures": [
+        "government"
+      ],
+      "brands": []
+    },
+    {
+      "sourceId": "competition-bureau",
+      "source": "Competition Bureau Canada",
+      "title": "Watch out for AI-generated government impersonators",
+      "url": "https://www.canada.ca/en/competition-bureau/news/2026/03/watch-out-for-ai-generated-government-impersonators.html",
+      "date": "2026-03-09T13:59:40.000Z",
+      "lures": [
+        "government"
+      ],
+      "brands": []
+    },
+    {
+      "sourceId": "competition-bureau",
+      "source": "Competition Bureau Canada",
+      "title": "Ding! Scammers are hiding in your text messages",
+      "url": "https://www.canada.ca/en/competition-bureau/news/2025/07/ding-scammers-are-hiding-in-your-text-messages.html",
+      "date": "2025-07-08T13:30:05.000Z",
+      "lures": [
+        "toll"
+      ],
+      "brands": []
+    }
+  ]
+}

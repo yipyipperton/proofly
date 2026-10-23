@@ -2,7 +2,7 @@
 
 **Check a message before you trust it.** Proofly is a mobile-first consumer safety tool. Paste a suspicious SMS, email, job offer or marketplace conversation and you get a calm, plain-English assessment of its red flags. It runs entirely on transparent, deterministic rules. No external AI or third-party APIs are called.
 
-> ⚠️ Proofly is **advisory only and not a guarantee**. A low score does not mean a message is safe. Proofly **never visits links** and makes **no domain reputation, blocklist, WHOIS or threat-intelligence lookups**. Everything it reports comes from the text you paste.
+> ⚠️ Proofly is **advisory only and not a guarantee**. A low score does not mean a message is safe. Proofly **never visits links in your message** and makes **no domain reputation, blocklist or WHOIS lookups**. The only outside data it uses is public scam alerts from government sources (see below).
 
 ## Features
 
@@ -21,6 +21,27 @@
 - Three preloaded demo examples
 - Zod input validation (10–8,000 chars, enum category), in-memory per-IP rate limiting (20 req/min)
 - User text is never rendered as HTML (React text nodes only, no `dangerouslySetInnerHTML`).
+
+## Scam-intelligence layer (public alerts, no AI)
+
+Proofly also matches messages against scam types described in **real public alerts**. Everything is deterministic keyword classification. No AI is involved.
+
+| Source | Feed | Status when built |
+| --- | --- | --- |
+| FBI IC3 Public Service Announcements | `https://www.ic3.gov/PSA/RSS` | ✅ works |
+| Competition Bureau Canada | Canada News Centre Atom API (`dept=competitionbureau`) | ✅ works |
+| FTC Consumer Alerts | `https://consumer.ftc.gov/blog/gd-rss.xml` | ⚠️ returns 403 to some server IPs; used when reachable |
+| RCMP | Canada News Centre Atom API (`dept=royalcanadianmountedpolice`) | ⚠️ API intermittently returns empty feeds |
+| Canadian Anti-Fraud Centre | Canada News Centre Atom API (`dept=canadianantifraudcentre`) | ⚠️ currently returns no entries; CAFC has no public RSS feed |
+
+BBB Scam Tracker and Get Cyber Safe offer no machine-readable feed, so Proofly doesn't scrape them.
+
+How it works:
+1. `src/lib/intel/feeds.ts` parses RSS/Atom as plain text, keeps only scam-related items whose links point to official domains (`ftc.gov`, `ic3.gov`, `canada.ca`…), and classifies each item into **lure types** (toll texts, fake deliveries, government impersonation, phone deactivation, fake jobs, tickets, passports, and more) plus impersonated **brands**, using the lexicon in `src/lib/intel/lures.ts`. Items that can't be classified are dropped. Nothing is guessed.
+2. **Storage.** A snapshot is committed at `src/data/scam-intel.json` (refresh it with `npm run update-scams`). At runtime, `getIntel()` fetches the live feeds through the Next.js Data Cache (revalidated every 24h and shared across instances on Vercel) and keeps a 6h in-memory copy. Any source that fails falls back to its snapshot alerts. No KV/Blob store is needed.
+3. **Daily Vercel Cron.** `vercel.json` calls `/api/cron/refresh-intel` daily at 09:00 UTC, which invalidates the cached feeds and refetches them. If you set `CRON_SECRET` in Vercel, the route requires it, and Vercel sends it automatically.
+4. **Matching.** A message shows **"Matches a reported scam pattern"** only when it contains the same lure type as at least one real alert. The source name, alert title, date and official link are shown. A match adds a small amount to the score, and only when rule findings also exist.
+5. The UI shows **"Scam patterns last updated: <date>"** with the sources that worked. `GET /api/intel` returns the current status.
 
 ## Stack
 
@@ -41,10 +62,11 @@ npm run dev                  # http://localhost:3000
 | `npm run build` / `npm start` | Production build / serve |
 | `npm test` | Vitest unit tests (URL parsing, validation, rules, explanations, rate limiter) |
 | `npm run lint` | ESLint |
+| `npm run update-scams` | Refetch public scam alerts into `src/data/scam-intel.json` |
 
 ## Environment variables
 
-None required. Proofly needs no API keys or secrets.
+None required. Proofly needs no API keys. Optional: `CRON_SECRET` protects the daily cron endpoint.
 
 ## Deploy to Vercel
 

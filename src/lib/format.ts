@@ -14,6 +14,14 @@ export function formatFindings(r: AnalysisResult): string {
       c.evidence.forEach((e) => lines.push(`   Evidence: "${e}"`));
     });
   }
+  if (r.intelMatches.length) {
+    lines.push("", "Matches reported scam patterns:");
+    r.intelMatches.forEach((m) => {
+      lines.push(`- ${m.label}`);
+      m.alerts.forEach((a) => lines.push(`   ${a.source}: "${a.title}"${a.date ? ` (${a.date.slice(0, 10)})` : ""} ${a.url}`));
+    });
+  }
+  if (r.intel?.updatedAt) lines.push("", `Scam patterns last updated: ${r.intel.updatedAt.slice(0, 10)}`);
   if (r.urls.length) {
     lines.push("", "Links found (not visited):");
     r.urls.forEach((u) => lines.push(`- ${u.raw.replace(/\./g, "[.]")}${u.issues.length ? ` (${u.issues.join("; ")})` : ""}`));

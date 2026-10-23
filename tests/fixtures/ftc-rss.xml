@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel><title>Consumer Alerts</title>
+<item>
+  <title>The FTC is not calling to deactivate your phone number</title>
+  <link>https://consumer.ftc.gov/consumer-alerts/2026/10/ftc-not-calling-deactivate-your-phone-number</link>
+  <description>&lt;p&gt;Scammers are &lt;b&gt;impersonating&lt;/b&gt; the FTC &amp;amp; saying they&amp;#8217;ll deactivate your phone number unless you pay.&lt;/p&gt;</description>
+  <pubDate>Thu, 22 Oct 2026 10:00:00 -0400</pubDate>
+</item>
+<item>
+  <title><![CDATA[Got a text about unpaid tolls? It's a scam]]></title>
+  <link>https://consumer.ftc.gov/consumer-alerts/2026/09/unpaid-tolls</link>
+  <description><![CDATA[<p>Texts about an unpaid toll balance with E-ZPass are scams.</p>]]></description>
+  <pubDate>Mon, 14 Sep 2026 09:00:00 -0400</pubDate>
+</item>
+<item>
+  <title>Malicious link alert</title>
+  <link>javascript:alert(1)</link>
+  <description>scam</description>
+</item>
+<item>
+  <title>Off-site toll scam post</title>
+  <link>https://evil.example.com/toll-scam</link>
+  <description>unpaid toll scam</description>
+</item>
+<item>
+  <title>How to budget for the holidays</title>
+  <link>https://consumer.ftc.gov/consumer-alerts/2026/08/budget</link>
+  <description>Tips for saving money.</description>
+</item>
+</channel></rss>

@@ -3,16 +3,37 @@
 import * as React from "react";
 import {
   AlertTriangle, Check, ClipboardCopy, Info, Link2Off, Loader2, MessageSquare, Mail,
-  Briefcase, ShoppingBag, ShieldCheck, ShieldAlert, Shield, RotateCcw, ListChecks, Quote,
+  Briefcase, ShoppingBag, ShieldCheck, ShieldAlert, Shield, RotateCcw, ListChecks, Quote, Radar, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { CATEGORIES, CATEGORY_LABELS, MAX_TEXT, MIN_TEXT, type AnalysisResult, type Category } from "@/lib/schema";
+import { CATEGORIES, CATEGORY_LABELS, MAX_TEXT, MIN_TEXT, type AnalysisResult, type Category, type IntelInfo } from "@/lib/schema";
 import { DEMOS } from "@/lib/demos";
 import { formatFindings } from "@/lib/format";
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "unknown";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "unknown" : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function IntelStatus({ info }: { info: IntelInfo | null | "loading" }) {
+  if (info === "loading") return <p className="text-xs text-muted-foreground">Loading scam pattern library…</p>;
+  if (!info) return <p className="text-xs text-muted-foreground">Scam pattern library unavailable. Rules still apply.</p>;
+  const ok = info.sources.filter((s) => s.ok).map((s) => s.name);
+  return (
+    <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+      <Radar className="mt-0.5 size-3.5 shrink-0" />
+      <span>
+        Scam patterns last updated: <span className="font-medium text-foreground">{fmtDate(info.updatedAt)}</span> · {info.alertCount} public alerts
+        {ok.length ? ` from ${ok.join(", ")}` : " (using saved snapshot)"}
+      </span>
+    </p>
+  );
+}
 
 const CATEGORY_ICONS: Record<Category, React.ComponentType<{ className?: string }>> = {
   sms: MessageSquare, email: Mail, job: Briefcase, marketplace: ShoppingBag,
@@ -25,6 +46,18 @@ export function ProoflyApp() {
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<AnalysisResult | null>(null);
   const resultRef = React.useRef<HTMLDivElement>(null);
+  const [intel, setIntel] = React.useState<IntelInfo | null | "loading">("loading");
+
+  React.useEffect(() => {
+    let alive = true;
+    fetch("/api/intel")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => alive && setIntel(d && typeof d.alertCount === "number" ? d : null))
+      .catch(() => alive && setIntel(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const len = text.trim().length;
   const canSubmit = len >= MIN_TEXT && text.length <= MAX_TEXT && !loading;
@@ -175,10 +208,12 @@ export function ProoflyApp() {
         {result && <Results key={result.analyzedAt} result={result} />}
       </div>
 
-      <footer className="mt-10 space-y-2 text-center text-xs leading-relaxed text-muted-foreground">
+      <div className="mt-6 flex justify-center px-2"><IntelStatus info={result?.intel ?? intel} /></div>
+
+      <footer className="mt-6 space-y-2 text-center text-xs leading-relaxed text-muted-foreground">
         <p>
           Proofly gives advisory guidance only and can&apos;t guarantee whether a message is safe or a scam.
-          It never opens links and makes no domain reputation or threat-intelligence lookups.
+          It never opens links in your message and makes no domain reputation lookups. Known-pattern matches come only from public government scam alerts.
         </p>
         <p>If you&apos;ve lost money or shared details, contact your bank right away using the number on your card.</p>
       </footer>
@@ -260,6 +295,35 @@ function Results({ result }: { result: AnalysisResult }) {
           </Button>
         </CardContent>
       </Card>
+
+      {result.intelMatches.length > 0 && (
+        <Card className="animate-rise border-amber-200 [animation-delay:40ms]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Radar className="size-4 text-amber-600" /> Matches a reported scam pattern</CardTitle>
+            <CardDescription>
+              This message resembles scam types described in public alerts. A pattern match means the message is similar to a reported scam. It doesn&apos;t prove this message is one.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {result.intelMatches.map((m) => (
+              <div key={m.lure} className="rounded-xl border border-border p-4">
+                <p className="font-medium">{m.label}</p>
+                <ul className="mt-2 space-y-2">
+                  {m.alerts.map((a, i) => (
+                    <li key={i} className="text-sm">
+                      <p className="text-xs text-muted-foreground">{a.source} · {fmtDate(a.date)}{a.brandMatch ? " · same brand mentioned" : ""}</p>
+                      <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-start gap-1 font-medium text-primary underline-offset-2 hover:underline">
+                        {a.title} <ExternalLink className="mt-1 size-3 shrink-0" />
+                      </a>
+                      <p className="break-all font-mono text-[11px] text-muted-foreground">{a.url}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="animate-rise [animation-delay:80ms]">
         <CardHeader>

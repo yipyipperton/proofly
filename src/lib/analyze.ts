@@ -1,8 +1,15 @@
 import type { AnalysisResult, Category, Concern, RiskLevel, RuleFinding } from "./schema";
 import { analyzeWithRules } from "./rules";
+import type { ScamIntel } from "./intel/feeds";
+import { matchIntel } from "./intel/match";
+
+export function intelInfo(intel: ScamIntel | null) {
+  if (!intel) return null;
+  return { updatedAt: intel.updatedAt, alertCount: intel.alerts.length, sources: intel.sources.map((s) => ({ name: s.name, ok: s.ok })) };
+}
 
 export const BASE_LIMITATIONS = [
-  "Proofly does not visit links, and makes no domain reputation, blocklist, or threat-intelligence lookups.",
+  "Proofly does not visit links in your message and makes no domain reputation or blocklist lookups. Pattern matches come only from public government scam alerts.",
   "Analysis uses fixed, transparent pattern rules on only on the text you pasted. Sender details, headers, and attachments are not verified.",
   "Results are advisory and not a guarantee. A low score does not mean a message is safe.",
 ];
@@ -65,13 +72,28 @@ function ruleConcerns(findings: RuleFinding[]): Concern[] {
   return findings.map((f) => ({ title: f.title, explanation: f.explanation, evidence: f.evidence, severity: f.severity }));
 }
 
-export function buildResult(params: { text: string; category: Category }): AnalysisResult {
-  const { text, category } = params;
+export function buildResult(params: { text: string; category: Category; intel?: ScamIntel | null }): AnalysisResult {
+  const { text, category, intel = null } = params;
   const rules = analyzeWithRules(text, category);
+  const intelMatches = matchIntel(text, intel);
+  // A known-pattern match adds weight, but only alongside at least one rule finding.
+  let score = rules.score;
+  let riskLevel = rules.riskLevel;
+  if (intelMatches.length && rules.ruleFindings.length) {
+    score = Math.min(100, score + Math.min(15, intelMatches.length * 8));
+    if (riskLevel === "low" && score >= 25) riskLevel = "medium";
+    if (riskLevel === "medium" && score >= 55) riskLevel = "high";
+  }
+  let summary = templatedSummary(riskLevel, rules.ruleFindings, category);
+  if (intelMatches.length) {
+    summary += ` It also resembles a scam type publicly reported by ${[...new Set(intelMatches.flatMap((m) => m.alerts.map((a) => a.source)))].slice(0, 2).join(" and ")}: ${intelMatches.map((m) => m.label.toLowerCase()).join("; ")}.`;
+  }
   return {
-    riskLevel: rules.riskLevel,
-    score: rules.score,
-    summary: templatedSummary(rules.riskLevel, rules.ruleFindings, category),
+    intelMatches,
+    intel: intelInfo(intel),
+    riskLevel,
+    score,
+    summary,
     concerns: ruleConcerns(rules.ruleFindings),
     ruleFindings: rules.ruleFindings,
     urls: rules.urls,

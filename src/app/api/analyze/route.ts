@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AnalyzeInputSchema } from "@/lib/schema";
 import { buildResult } from "@/lib/analyze";
+import { getIntel } from "@/lib/intel/store";
 import { clientIp, createRateLimiter } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -30,5 +31,6 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input." }, { status: 400 });
   }
-  return NextResponse.json(buildResult(parsed.data));
+  const intel = await getIntel().catch(() => null);
+  return NextResponse.json(buildResult({ ...parsed.data, intel }));
 }
