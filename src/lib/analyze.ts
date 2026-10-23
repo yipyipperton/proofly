@@ -53,7 +53,7 @@ export function templatedSummary(level: RiskLevel, findings: RuleFinding[], cate
   if (!findings.length) {
     return "We didn't find the common scam patterns we check for. That's a good sign, but it isn't proof the message is safe. Scams change all the time, so if it asks you to pay, sign in or share anything personal, check with the sender through a channel you already trust.";
   }
-  const top = findings.slice(0, 3).map((f) => f.title.toLowerCase());
+  const top = findings.slice(0, 3).map((f) => f.title.charAt(0).toLowerCase() + f.title.slice(1));
   const list = top.length > 1 ? `${top.slice(0, -1).join(", ")} and ${top[top.length - 1]}` : top[0];
   const lead =
     level === "high"

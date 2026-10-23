@@ -37,6 +37,12 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background:
     radial-gradient(1200px 500px at 50% -200px, #e3eef8 0%, transparent 70%),
@@ -57,6 +63,15 @@ body {
 }
 .animate-scan { animation: scan 1.2s ease-in-out infinite; }
 
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] .chev { transform: rotate(180deg); }
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-rise, .animate-scan { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
